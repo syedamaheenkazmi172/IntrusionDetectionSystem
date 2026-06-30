@@ -21,3 +21,18 @@ while True:
 	ttl=ip_header[5]
 	print(
 	 "Version: ",version, socket.inet_ntoa(src),"->",socket.inet_ntoa(dst)," Protocol: ",protocol, "TTL: ", ttl)
+	
+
+	if protocol==6:
+		tcp=raw_data[34:54]
+		tcp_header=struct.unpack('!HHLLBBHHH',tcp)
+		src_port=tcp_header[0]
+		dst_port=tcp_header[1]
+		flags=tcp_header[5]
+
+		syn=(flags & 0x02) !=0
+		ack=(flags & 0x10) !=0
+		fin=(flags & 0x01) !=0
+		rst=(flags & 0x04) !=0
+		
+		print(f'TCP {socket.inet_ntoa(src)}:{src_port} -> {socket.inet_ntoa(dst)}:{dst_port} | SYN={syn} ACK={ack} FIN={fin} RST={rst}')
