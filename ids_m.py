@@ -34,6 +34,11 @@ syn_tracker=defaultdict(list)
 threshold=20 #max number of seconds in a certain window
 window=10 #seconds
 
+# for icmp flood detection
+icmp_tracker=defaultdict(list)
+icmp_threshold=50
+icmp_window=1
+
 print("Listening..")
 
 while True:
@@ -82,4 +87,17 @@ while True:
 
 			if len(syn_tracker[socket.inet_ntoa(src)])>threshold:
 				alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {window}s',severity=2)
+
+	elif protocol==1:
+		icmp=raw_data[34:38]
+		icmp_header=struct.unpack('!BBH',icmp)
+		icmp_type=icmp_header[0]
+
+		if icmp_type==8: #indicates echo request
+			now=time.time()
+			icmp_tracker[src_ip].append(now)
+			icmp_tracker[src_ip]=[
+				t for t in icmp_tracker[src_ip] if now-t<icmp_window]
+			if len(icmp_tracker[src_ip])>threshold:
+				alert('ICMP FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
 
