@@ -4,19 +4,41 @@ import socket
 import struct 
 import time
 from collections import defaultdict
+import logging # to log any possible intrusion
+import json # to format in json form so it will make processing easier
 
+#logging function
+logging.basicConfig(
+	filename='ids_alerts.log',
+	level=logging.WARNING,
+	format="%(asctime)s %(levelname)s %(message)s"
+)
+
+# function to log alerts
+def alert(rule,src_ip,detail,severity=2):
+	entry=json.dumps({
+		'rule' : rule,
+		'src': src_ip,
+		'detail': detail,
+		'severity': severity,
+		'ts':time.time()
+	})
+	logging.warning(entry)
+	print(f'[ALERT- {severity}] {rule} | {src_ip} | {detail}')
+
+# raw socket opening
 s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW, socket.ntohs(0x0003))
 
 #for syn_packets to detect scans
 syn_tracker=defaultdict(list)
 threshold=20 #max number of seconds in a certain window
-window=5 #seconds
+window=10 #seconds
 
 print("Listening..")
 
 while True:
 	raw_data, addr= s.recvfrom(65535) #capturing packets 
-	#skipping wthernet header that are the first 14 bytes
+	#skipping ethernet header that are the first 14 bytes
 	ip=raw_data[14:34]
 	
 	ip_header=struct.unpack("!BBHHHBBH4s4s",ip)
@@ -26,9 +48,11 @@ while True:
 	dst=ip_header[9]
 	protocol=ip_header[6]
 	ttl=ip_header[5]
-	print(
-	 "Version: ",version, socket.inet_ntoa(src),"->",socket.inet_ntoa(dst)," Protocol: ",protocol, "TTL: ", ttl)
-	
+
+	src_ip=socket.inet_ntoa(src)
+	dst_ip=socket.inet_ntoa(dst)
+	#print( "Version: ",version, socket.inet_ntoa(src),"->",socket.inet_ntoa(dst)," Protocol: ",protocol, "TTL: ", ttl)
+	# we commented out above print statement as we do not need that in IDS logic
 
 	if protocol==6:
 		tcp=raw_data[34:54]
@@ -41,20 +65,21 @@ while True:
 		ack=(flags & 0x10) !=0
 		fin=(flags & 0x01) !=0
 		rst=(flags & 0x04) !=0
-		
-		print(f'TCP {socket.inet_ntoa(src)}:{src_port} -> {socket.inet_ntoa(dst)}:{dst_port} | SYN={syn} ACK={ack} FIN={fin} RST={rst}')
-		
+
+		#print(f'TCP {src_ip}:{src_port} -> {dst_ip}:{dst_port} | SYN={syn} ACK={ack} FIN={fin} RST={rst}')
+		#we do not need above printing line now
 
 		#from here we are checking port scanning logic so we will just consider syn and ack
 		#for that we have created syn_tracker, threshold and window
-		
+
 		if syn and not ack: #indicates that it was just scanning not trying to establish a connection, because then it could be logged
 			now=time.time()
-			syn_tracker[socket.inet_ntoa(src)].append(now)
-			syn_tracker[socket.inet_ntoa(src)]=[
+			syn_tracker[src_ip].append(now)
+			syn_tracker[src_ip]=[
 				t for t in syn_tracker[socket.inet_ntoa(src)]
 				if now-t<window
 			]
-			
+
 			if len(syn_tracker[socket.inet_ntoa(src)])>threshold:
-				print(f'[ALERT] PORT_SCAN from {socket.inet_ntoa(src)} - {len(syn_tracker[socket.inet_ntoa(src)])} SYNs in {window}s')
+				alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {window}s',severity=2)
+
