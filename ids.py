@@ -4,11 +4,15 @@ from alert import alert
 
 THRESHOLD = 20
 WINDOW = 5
-syn_tracker = defaultdict(list)
-
 ICMP_THRESHOLD = 50
 ICMP_WINDOW = 1
+SSH_THRESHOLD = 10
+SSH_WINDOW = 60
+
+syn_tracker = defaultdict(list)
 icmp_tracker = defaultdict(list)
+ssh_tracker = defaultdict(list)
+
 
 s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
 
@@ -38,6 +42,20 @@ while True:
 				alert('PORT_SCAN', src_ip,
 					f'{len(syn_tracker[src_ip])} SYNs in {WINDOW}s',
 					severity = 2)
+
+		d_port = tcph[1]
+		if syn and not ack and d_port == 22:
+			now = time.time()
+			ssh_tracker[src_ip].append(now)
+			ssh_tracker[src_ip] = [
+				t for t in ssh_tracker[src_ip]
+				if now - t < SSH_WINDOW
+			]
+			if len(ssh_tracker[src_ip]) > SSH_THRESHOLD:
+				alert('SSH_BRUTE', src_ip,
+					f'{len(ssh_tracker[src_ip])} SSH attempts in {SSH_WINDOW}s',
+					severity = 2) 
+
 
 	elif iph[6] == 1:
 		icmp_header = raw_data[34:38]
