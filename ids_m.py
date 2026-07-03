@@ -39,6 +39,11 @@ icmp_tracker=defaultdict(list)
 icmp_threshold=50
 icmp_window=1
 
+# for ssh brute force detection
+ssh_tracker=defaultdict(list)
+ssh_threshold=10
+ssh_window=60
+
 print("Listening..")
 
 while True:
@@ -87,7 +92,17 @@ while True:
 
 			if len(syn_tracker[socket.inet_ntoa(src)])>threshold:
 				alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {window}s',severity=2)
+						alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {window}s',severity=2)
 
+		# for brute force detection
+		dst_port=tcp_header[1]
+		if syn and not ack and dst_port==22:
+			now=time.time()
+			ssh_tracker[src_ip].append(now)
+			ssh_tracker[src_ip]=[
+				t for t in ssh_tracker[src_ip] if now-t<ssh_window]
+			if len(ssh_tracker[src_ip]) >ssh_threshold:
+				alert('SSH BRUTE', src_ip, f'{len(ssh_tracker[src_ip])} SSH attempts in {ssh_window}s',severity=2)
 	elif protocol==1:
 		icmp=raw_data[34:38]
 		icmp_header=struct.unpack('!BBH',icmp)

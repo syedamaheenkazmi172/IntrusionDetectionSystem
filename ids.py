@@ -4,7 +4,6 @@ from alert import alert
 from scapy.all import ARP, sniff as scapy_sniff
 import threading
 
-
 THRESHOLD = 20
 WINDOW = 5
 ICMP_THRESHOLD = 50
@@ -28,7 +27,6 @@ def check_arp(pkt):
 				severity = 3)
 		arp_table[ip] = mac
 
-
 s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
 
 print('IDS running...')
@@ -38,7 +36,6 @@ arp_thread = threading.Thread(
 	daemon = True
 )
 arp_thread.start()
-
 
 while True:
 	raw_data, _ = s.recvfrom(65535)
