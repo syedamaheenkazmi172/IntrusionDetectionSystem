@@ -1,6 +1,9 @@
 import socket, struct, time
 from collections import defaultdict
 from alert import alert
+from scapy.all import ARP, sniff as scapy_sniff
+import threading
+
 
 THRESHOLD = 20
 WINDOW = 5
@@ -12,11 +15,30 @@ SSH_WINDOW = 60
 syn_tracker = defaultdict(list)
 icmp_tracker = defaultdict(list)
 ssh_tracker = defaultdict(list)
+arp_table = {}
+
+
+def check_arp(pkt):
+	if pkt.haslayer(ARP) and pkt[ARP].op == 2:
+		ip = pkt[ARP].psrc
+		mac = pkt[ARP].hwsrc
+		if ip in arp_table and arp_table[ip] != mac:
+			alert('ARP_SPOOF', ip,
+				f'MAC changed from {arp_table[ip]} to {mac}',
+				severity = 3)
+		arp_table[ip] = mac
 
 
 s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
 
 print('IDS running...')
+
+arp_thread = threading.Thread(
+	target = lambda: scapy_sniff(filter = 'arp', prn = check_arp, store = 0),
+	daemon = True
+)
+arp_thread.start()
+
 
 while True:
 	raw_data, _ = s.recvfrom(65535)
