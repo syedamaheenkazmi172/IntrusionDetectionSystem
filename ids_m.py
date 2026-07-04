@@ -73,8 +73,8 @@ while True:
                 src_ip=socket.inet_ntoa(src)
                 dst_ip=socket.inet_ntoa(dst)
 
-                #print( "Version: ",version, socket.inet_ntoa(src),"->",socket.inet_ntoa(dst)," Protocol: ",protocol, "TTL: ", ttl)
-                # we commented out above print statement as we do not need that in IDS logic
+			if len(syn_tracker[src_ip)>syn_threshold:
+				alert('PORT SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {syn_window}s',severity=2)
 
                 if protocol==6:
                         tcp=raw_data[34:54]
