@@ -1,6 +1,3 @@
 ids_env/
 __pycache__/
 *.log
-ids_env/
-*.log
-__pycache__/
