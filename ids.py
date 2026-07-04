@@ -1,19 +1,34 @@
 #combining all parts here in one single file
-
 import socket
 import struct 
 import time
+import signal
+import sys
 from collections import defaultdict
-import logging # to log any possible intrusion
-import json # to format in json form so it will make processing easier
+import logging
+import json
 from alert import alert
 
-# raw socket opening
-s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW, socket.ntohs(0x0003))
+# raw socket needs root
+try:
+        s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
+except PermissionError:
+        print("Error: raw sockets need root privileges. Run this with sudo.")
+        sys.exit(1)
+
+# handle ctrl+c and systemctl stop cleanly
+def shutdown(signum, frame):
+        print("\nShutting down IDS.")
+        s.close()
+        sys.exit(0)
+
+signal.signal(signal.SIGINT, shutdown)
+signal.signal(signal.SIGTERM, shutdown)
 
 #for syn_packets to detect scans
 syn_tracker=defaultdict(list)
-syn_threshold=20 #max number of seconds in a certain window
+syn_ports=defaultdict(set)          # distinct destination ports hit per source ip
+port_threshold=15                   # distinct ports in the window = scan
 syn_window=10 #seconds
 
 # for icmp flood detection
