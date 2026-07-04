@@ -1,9 +1,10 @@
 import logging, json, time
 
+#logging function
 logging.basicConfig(
-	filename = 'ids_alerts.log',
-	level = logging.WARNING,
-	format = '%(asctime)s %(message)s'
+	filename='ids_alerts.log',
+	level=logging.WARNING,
+	format="%(asctime)s %(levelname)s %(message)s"
 )
 
 # function to log alerts
