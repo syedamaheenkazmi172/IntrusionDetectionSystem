@@ -31,8 +31,8 @@ s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW, socket.ntohs(0x0003))
 
 #for syn_packets to detect scans
 syn_tracker=defaultdict(list)
-threshold=20 #max number of seconds in a certain window
-window=10 #seconds
+syn_threshold=20 #max number of seconds in a certain window
+syn_window=10 #seconds
 
 # for icmp flood detection
 icmp_tracker=defaultdict(list)
@@ -102,11 +102,11 @@ while True:
 
                                 syn_tracker[src_ip]=[
                                         t for t in syn_tracker[src_ip]
-                                        if now-t<window
+                                        if now-t<syn_window
                                 ]
 
-                                if len(syn_tracker[src_ip])>threshold:
-                                        alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {window}s',severity=2)
+                                if len(syn_tracker[src_ip])>syn_threshold:
+                                        alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {syn_window}s',severity=2)
 
                         # for brute force detection
                         if syn and not ack and dst_port==22:
@@ -141,7 +141,7 @@ while True:
                                         if now-t<icmp_window
                                 ]
 
-                                if len(icmp_tracker[src_ip])>threshold:
+                                if len(icmp_tracker[src_ip])>icmp_threshold:
                                         alert('ICMP FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
 
         elif ethertype==0x0806:
