@@ -8,13 +8,6 @@ import logging # to log any possible intrusion
 import json # to format in json form so it will make processing easier
 import alert from alert
 
-#logging function
-logging.basicConfig(
-	filename='ids_alerts.log',
-	level=logging.WARNING,
-	format="%(asctime)s %(levelname)s %(message)s"
-)
-
 # raw socket opening
 s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW, socket.ntohs(0x0003))
 
