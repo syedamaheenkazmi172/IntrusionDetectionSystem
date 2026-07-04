@@ -71,8 +71,11 @@ while True:
                 dst_ip=socket.inet_ntoa(dst)
 
                 if protocol==6:
-                        tcp=raw_data[34:54]
-                        tcp_header=struct.unpack('!HHLLBBHHH',tcp)
+                        try:
+                                tcp=raw_data[34:54]
+                                tcp_header=struct.unpack('!HHLLBBHHH',tcp)
+                        except struct.error:
+                                continue  # truncated/weird packet, skip instead of crashing
 
                         src_port=tcp_header[0]
                         dst_port=tcp_header[1]
@@ -83,21 +86,14 @@ while True:
                         fin=(flags & 0x01) !=0
                         rst=(flags & 0x04) !=0
 
-                        #print(f'TCP {src_ip}:{src_port} -> {dst_ip}:{dst_port} | SYN={syn} ACK={ack} FIN={fin} RST={rst}')
-                        #we do not need above printing line now
+                        #checking port scanning logic, using distinct ports hit
+                        if syn and not ack: #indicates probing
+                                syn_ports[src_ip].add(dst_port)
 
-                        #from here we are checking port scanning logic so we will just consider syn and ack
-                        #for that we have created syn_tracker, threshold and window
-
-                        if syn and not ack: #indicates that it was just scanning not trying to establish a connection, because then it could be logged
-                                now=time.time()
-                                syn_tracker[src_ip].append(now)
-                                syn_tracker[src_ip]=[
-                                        t for t in syn_tracker[src_ip]
-                                        if now-t<syn_window]
-
-                                if len(syn_tracker[src_ip])>syn_threshold:
-                                        alert('PORT SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {syn_window}s',severity=2)
+                                if len(syn_ports[src_ip])>port_threshold:
+                                        alert('PORT_SCAN', src_ip,
+                                              f'{len(syn_ports[src_ip])} distinct ports scanned (last hit: {dst_ip}:{dst_port})',
+                                              severity=2)
 
                         # for brute force detection
                         if syn and not ack and dst_port==22:
@@ -108,7 +104,9 @@ while True:
                                         if now-t<ssh_window
                                 ]
                                 if len(ssh_tracker[src_ip]) >ssh_threshold:
-                                        alert('SSH BRUTE', src_ip, f'{len(ssh_tracker[src_ip])} SSH attempts in {ssh_window}s',severity=2)
+                                        alert('SSH_BRUTE', src_ip,
+                                              f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s',
+                                              severity=2)
 
                 elif protocol==1:
                         icmp=raw_data[34:42]
