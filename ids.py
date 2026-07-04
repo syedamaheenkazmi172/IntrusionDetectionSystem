@@ -1,95 +1,155 @@
-import socket, struct, time
+#combining all parts here in one single file
+
+import socket
+import struct 
+import time
 from collections import defaultdict
-from alert import alert
-from scapy.all import ARP, sniff as scapy_sniff
-import threading
+import logging # to log any possible intrusion
+import json # to format in json form so it will make processing easier
+import alert from alert
 
-THRESHOLD = 20
-WINDOW = 5
-ICMP_THRESHOLD = 50
-ICMP_WINDOW = 1
-SSH_THRESHOLD = 10
-SSH_WINDOW = 60
-
-syn_tracker = defaultdict(list)
-icmp_tracker = defaultdict(list)
-ssh_tracker = defaultdict(list)
-arp_table = {}
-
-
-def check_arp(pkt):
-	if pkt.haslayer(ARP) and pkt[ARP].op == 2:
-		ip = pkt[ARP].psrc
-		mac = pkt[ARP].hwsrc
-		if ip in arp_table and arp_table[ip] != mac:
-			alert('ARP_SPOOF', ip,
-				f'MAC changed from {arp_table[ip]} to {mac}',
-				severity = 3)
-		arp_table[ip] = mac
-
-s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
-
-print('IDS running...')
-
-arp_thread = threading.Thread(
-	target = lambda: scapy_sniff(filter = 'arp', prn = check_arp, store = 0),
-	daemon = True
+#logging function
+logging.basicConfig(
+	filename='ids_alerts.log',
+	level=logging.WARNING,
+	format="%(asctime)s %(levelname)s %(message)s"
 )
-arp_thread.start()
+
+# raw socket opening
+s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW, socket.ntohs(0x0003))
+
+#for syn_packets to detect scans
+syn_tracker=defaultdict(list)
+syn_threshold=20 #max number of seconds in a certain window
+syn_window=10 #seconds
+
+# for icmp flood detection
+icmp_tracker=defaultdict(list)
+icmp_threshold=50
+icmp_window=1
+
+# for ssh brute force detection
+ssh_tracker=defaultdict(list)
+ssh_threshold=10
+ssh_window=60
+
+#aprp table
+arp_table={}
+
+print("IDS Running..")
 
 while True:
-	raw_data, _ = s.recvfrom(65535)
-	ip_header = raw_data[14:34]
-	iph = struct.unpack('!BBHHHBBH4s4s', ip_header)
-	
-	if iph[6] == 6:
-		tcp_header = raw_data[34:54]
-		tcph = struct.unpack('!HHLLBBHHH', tcp_header)
-		flags = tcph[5]
-		src_ip = socket.inet_ntoa(iph[8])
-		syn = (flags & 0x02) != 0
-		ack = (flags & 0x10) != 0
-	
-		if syn and not ack:
-			now =  time.time()
-			syn_tracker[src_ip].append(now)
-			syn_tracker[src_ip] = [
-				t for t in syn_tracker[src_ip]
-				if now - t < WINDOW
-			]
-			if len(syn_tracker[src_ip]) > THRESHOLD:
-				alert('PORT_SCAN', src_ip,
-					f'{len(syn_tracker[src_ip])} SYNs in {WINDOW}s',
-					severity = 2)
+        raw_data, addr= s.recvfrom(65535) #capturing packets
 
-		d_port = tcph[1]
-		if syn and not ack and d_port == 22:
-			now = time.time()
-			ssh_tracker[src_ip].append(now)
-			ssh_tracker[src_ip] = [
-				t for t in ssh_tracker[src_ip]
-				if now - t < SSH_WINDOW
-			]
-			if len(ssh_tracker[src_ip]) > SSH_THRESHOLD:
-				alert('SSH_BRUTE', src_ip,
-					f'{len(ssh_tracker[src_ip])} SSH attempts in {SSH_WINDOW}s',
-					severity = 2) 
+        # extracting ethernet header
+        ethernet=raw_data[:14]
+        eth_header=struct.unpack("!6s6sH", ethernet)
+        ethertype=eth_header[2]
 
+        if ethertype==0x0800:
 
-	elif iph[6] == 1:
-		icmp_header = raw_data[34:38]
-		icmph = struct.unpack('!BBH', icmp_header)
-		icmp_type = icmph[0]
-		src_ip = socket.inet_ntoa(iph[8])
-		
-		if icmp_type == 8:
-			now = time.time()
-			icmp_tracker[src_ip].append(now)
-			icmp_tracker[src_ip] = [
-				t for t in icmp_tracker[src_ip]
-				if now - t < ICMP_WINDOW
-			]
-			if len(icmp_tracker[src_ip]) > ICMP_THRESHOLD:
-				alert('ICMP_FLOOD', src_ip,
-					f'{len(icmp_tracker[src_ip])} pings in {ICMP_WINDOW}s',
-                                        severity=3)
+                #skipping ethernet header that are the first 14 bytes
+                ip=raw_data[14:34]
+
+                ip_header=struct.unpack("!BBHHHBBH4s4s",ip)
+
+                version=ip_header[0] >> 4
+                src=ip_header[8]
+                dst=ip_header[9]
+                protocol=ip_header[6]
+                ttl=ip_header[5]
+
+                src_ip=socket.inet_ntoa(src)
+                dst_ip=socket.inet_ntoa(dst)
+
+			if len(syn_tracker[src_ip)>syn_threshold:
+				alert('PORT SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {syn_window}s',severity=2)
+
+                if protocol==6:
+                        tcp=raw_data[34:54]
+                        tcp_header=struct.unpack('!HHLLBBHHH',tcp)
+
+                        src_port=tcp_header[0]
+                        dst_port=tcp_header[1]
+                        flags=tcp_header[5]
+
+                        syn=(flags & 0x02) !=0
+                        ack=(flags & 0x10) !=0
+                        fin=(flags & 0x01) !=0
+                        rst=(flags & 0x04) !=0
+
+                        #print(f'TCP {src_ip}:{src_port} -> {dst_ip}:{dst_port} | SYN={syn} ACK={ack} FIN={fin} RST={rst}')
+                        #we do not need above printing line now
+
+                        #from here we are checking port scanning logic so we will just consider syn and ack
+                        #for that we have created syn_tracker, threshold and window
+
+                        if syn and not ack: #indicates that it was just scanning not trying to establish a connection, because then it could be logged
+                                now=time.time()
+
+                                syn_tracker[src_ip].append(now)
+
+                                syn_tracker[src_ip]=[
+                                        t for t in syn_tracker[src_ip]
+                                        if now-t<syn_window
+                                ]
+
+                                if len(syn_tracker[src_ip])>syn_threshold:
+                                        alert('PORT_SCAN', src_ip, f'{len(syn_tracker[src_ip])} SYNs in {syn_window}s',severity=2)
+
+                        # for brute force detection
+                        if syn and not ack and dst_port==22:
+
+                                now=time.time()
+
+                                ssh_tracker[src_ip].append(now)
+
+                                ssh_tracker[src_ip]=[
+                                        t for t in ssh_tracker[src_ip]
+                                        if now-t<ssh_window
+                                ]
+
+                                if len(ssh_tracker[src_ip]) >ssh_threshold:
+                                        alert('SSH BRUTE', src_ip, f'{len(ssh_tracker[src_ip])} SSH attempts in {ssh_window}s',severity=2)
+
+                elif protocol==1:
+
+                        icmp=raw_data[34:42]
+                        icmp_header=struct.unpack('!BBHHH',icmp)
+
+                        icmp_type=icmp_header[0]
+
+                        if icmp_type==8: #indicates echo request
+
+                                now=time.time()
+
+                                icmp_tracker[src_ip].append(now)
+
+                                icmp_tracker[src_ip]=[
+                                        t for t in icmp_tracker[src_ip]
+                                        if now-t<icmp_window
+                                ]
+
+                                if len(icmp_tracker[src_ip])>icmp_threshold:
+                                        alert('ICMP FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
+
+        elif ethertype==0x0806:
+
+                # skipping ethernet header and extracting arp packet
+                arp=raw_data[14:42]
+
+                arp_header=struct.unpack("!HHBBH6s4s6s4s",arp)
+
+                opcode=arp_header[4]
+
+                sender_mac=":".join(f"{b:02x}" for b in arp_header[5])
+                sender_ip=socket.inet_ntoa(arp_header[6])
+
+                # we only check arp replies because they can poison arp caches
+                if opcode==2:
+                        if sender_ip in arp_table:
+                                if arp_table[sender_ip]!=sender_mac:
+                                        alert('ARP SPOOF', sender_ip,
+                                                f'MAC changed from {arp_table[sender_ip]} to {sender_mac}', severity=3
+                                        )
+                        arp_table[sender_ip]=sender_mac
