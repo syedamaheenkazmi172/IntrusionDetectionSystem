@@ -26,7 +26,6 @@ signal.signal(signal.SIGINT, shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
 #for syn_packets to detect scans
-syn_tracker=defaultdict(list)
 syn_ports=defaultdict(set)          # distinct destination ports hit per source ip
 port_threshold=15                   # distinct ports in the window = scan
 syn_window=10 #seconds
@@ -59,7 +58,10 @@ while True:
                 #skipping ethernet header that are the first 14 bytes
                 ip=raw_data[14:34]
 
-                ip_header=struct.unpack("!BBHHHBBH4s4s",ip)
+                try:
+                        ip_header=struct.unpack("!BBHHHBBH4s4s",ip)
+                except struct.error:
+                        continue  # skip malformed ip header instead of crashing
 
                 version=ip_header[0] >> 4
                 src=ip_header[8]
@@ -110,7 +112,10 @@ while True:
 
                 elif protocol==1:
                         icmp=raw_data[34:42]
-                        icmp_header=struct.unpack('!BBHHH',icmp)
+                        try:
+                                icmp_header=struct.unpack('!BBHHH',icmp)
+                        except struct.error:
+                                continue
 
                         icmp_type=icmp_header[0]
 
@@ -124,12 +129,15 @@ while True:
                                 ]
 
                                 if len(icmp_tracker[src_ip])>icmp_threshold:
-                                        alert('ICMP FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
+                                        alert('ICMP_FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
 
         elif ethertype==0x0806:
                 # skipping ethernet header and extracting arp packet
                 arp=raw_data[14:42]
-                arp_header=struct.unpack("!HHBBH6s4s6s4s",arp)
+                try:
+                        arp_header=struct.unpack("!HHBBH6s4s6s4s",arp)
+                except struct.error:
+                        continue
                 opcode=arp_header[4]
                 sender_mac=":".join(f"{b:02x}" for b in arp_header[5])
                 sender_ip=socket.inet_ntoa(arp_header[6])
@@ -137,7 +145,7 @@ while True:
                 if opcode==2:
                         if sender_ip in arp_table:
                                 if arp_table[sender_ip]!=sender_mac:
-                                        alert('ARP SPOOF', sender_ip,
+                                        alert('ARP_SPOOF', sender_ip,
                                                 f'MAC changed from {arp_table[sender_ip]} to {sender_mac}', severity=3
                                         )
                         arp_table[sender_ip]=sender_mac
