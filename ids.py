@@ -40,8 +40,31 @@ ssh_tracker=defaultdict(list)
 ssh_threshold=10
 ssh_window=60
 
-#aprp table
+#arp table
 arp_table={}
+
+#detecting OS logic
+os_fingerprint_cache={} #so program does not check os every time a new packet comes
+
+def detect_os(ttl, window):
+        if ttl<=64:
+                base_ttl=64
+        elif ttl<=128:
+                base_ttl=128
+        else:
+                base_ttl=255
+
+        if base_ttl==64:
+                if window in (5840,14600,29200,5720):
+                        return "Linux (likely)"
+                elif window in (65535,65280):
+                        return "macOS/BSD (likely)"
+                return "Linux/Unix (likely)"
+        elif base_ttl==128:
+                return "Windows (likely)"
+        else:
+                return "Network device / legacy Unix (likely)"
+
 
 print("IDS Running..")
 
@@ -90,11 +113,14 @@ while True:
 
                         #checking port scanning logic, using distinct ports hit
                         if syn and not ack: #indicates probing
+                                if src_ip not in os_fingerprint_cache: #added this for guessing os
+                                        os_fingerprint_cache[src_ip]=detect_os(ttl, tcp_header[6])
+
                                 syn_ports[src_ip].add(dst_port)
 
                                 if len(syn_ports[src_ip])>port_threshold:
                                         alert('PORT_SCAN', src_ip,
-                                              f'{len(syn_ports[src_ip])} distinct ports scanned (last hit: {dst_ip}:{dst_port})',
+                                              f'{len(syn_ports[src_ip])} distinct ports scanned (last hit: {dst_ip}:{dst_port}) [suspected OS: {os_fingerprint_cache[src_ip]}]',
                                               severity=2)
 
                         # for brute force detection
@@ -107,7 +133,7 @@ while True:
                                 ]
                                 if len(ssh_tracker[src_ip]) >ssh_threshold:
                                         alert('SSH_BRUTE', src_ip,
-                                              f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s',
+                                              f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {os_fingerprint_cache[src_ip]}]',
                                               severity=2)
 
                 elif protocol==1:
