@@ -8,6 +8,14 @@ from collections import defaultdict
 import logging
 import json
 from alert import alert
+import argparse
+from ips import block_ip, unblock_all
+
+# off by default -- ids only starts blocking things if you explicitly ask for it
+parser = argparse.ArgumentParser()
+parser.add_argument("--enforce", action="store_true",
+                     help="Actually block IPs via iptables (default: dry-run/log-only)")
+args = parser.parse_args()
 
 # raw socket needs root
 try:
@@ -19,6 +27,8 @@ except PermissionError:
 # handle ctrl+c and systemctl stop cleanly
 def shutdown(signum, frame):
         print("\nShutting down IDS.")
+        # clean up any firewall rules we added this run, don't leave orphans behind
+        unblock_all(enforce=args.enforce)
         s.close()
         sys.exit(0)
 
@@ -168,6 +178,8 @@ while True:
                                         alert('SSH_BRUTE', src_ip,
                                               f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
+                                        # high-confidence attack, worth an automatic block
+                                        block_ip(src_ip, enforce=args.enforce)
 
                 elif protocol==1:
                         icmp=raw_data[34:42]
@@ -190,6 +202,8 @@ while True:
 
                                 if len(icmp_tracker[src_ip])>icmp_threshold:
                                         alert('ICMP_FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
+					# same deal -- flood is unambiguous enough to act on
+                                        block_ip(src_ip, enforce=args.enforce)
 
         elif ethertype==0x0806:
                 # skipping ethernet header and extracting arp packet
