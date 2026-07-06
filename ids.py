@@ -29,6 +29,8 @@ signal.signal(signal.SIGTERM, shutdown)
 syn_ports=defaultdict(set)          # distinct destination ports hit per source ip
 port_threshold=15                   # distinct ports in the window = scan
 syn_window=10 #seconds
+syn_sample_counter=defaultdict(int) # limits how often we sample OS fingerprint from SYN traffic
+SYN_SAMPLE_RATE=10
 
 # for icmp flood detection
 icmp_tracker=defaultdict(list)
@@ -43,28 +45,52 @@ ssh_window=60
 #arp table
 arp_table={}
 
-#detecting OS logic
-os_fingerprint_cache={} #so program does not check os every time a new packet comes
+os_fingerprint_samples = defaultdict(list)  # src_ip -> list of (guess, weight)
+MAX_SAMPLES_PER_IP = 20                     # cap memory usage per source
 
-def detect_os(ttl, window):
-        if ttl<=64:
-                base_ttl=64
-        elif ttl<=128:
-                base_ttl=128
-        else:
-                base_ttl=255
+def classify_sample(ttl, window):
+    """Raw single-packet guess, same bucket logic as before."""
+    if ttl <= 64:
+        base_ttl = 64
+    elif ttl <= 128:
+        base_ttl = 128
+    else:
+        base_ttl = 255
 
-        if base_ttl==64:
-                if window in (5840,14600,29200,5720):
-                        return "Linux (likely)"
-                elif window in (65535,65280):
-                        return "macOS/BSD (likely)"
-                return "Linux/Unix (likely)"
-        elif base_ttl==128:
-                return "Windows (likely)"
-        else:
-                return "Network device / legacy Unix (likely)"
+    if base_ttl == 64:
+        if window in (5840, 14600, 29200, 5720):
+            return "Linux (likely)"
+        elif window in (65535, 65280):
+            return "macOS/BSD (likely)"
+        return "Linux/Unix (likely)"
+    elif base_ttl == 128:
+        return "Windows (likely)"
+    else:
+        return "Network device / legacy Unix (likely)"
 
+def record_os_sample(src_ip, ttl, window, source_type):
+    """
+    source_type: 'icmp' (trusted, weight 3) or 'tcp_syn' (less trusted, weight 1)
+    """
+    guess = classify_sample(ttl, window)
+    weight = 3 if source_type in ('icmp', 'ssh') else 1
+
+    samples = os_fingerprint_samples[src_ip]
+    samples.append((guess, weight))
+    if len(samples) > MAX_SAMPLES_PER_IP:
+        samples.pop(0)  # drop oldest, keep it a rolling window
+
+def get_os_guess(src_ip):
+    """Weighted majority vote across all recent samples for this IP."""
+    samples = os_fingerprint_samples.get(src_ip)
+    if not samples:
+        return "Unknown"
+
+    tally = defaultdict(int)
+    for guess, weight in samples:
+        tally[guess] += weight
+
+    return max(tally, key=tally.get)
 
 print("IDS Running..")
 
@@ -113,14 +139,21 @@ while True:
 
                         #checking port scanning logic, using distinct ports hit
                         if syn and not ack: #indicates probing
-                                if src_ip not in os_fingerprint_cache: #added this for guessing os
-                                        os_fingerprint_cache[src_ip]=detect_os(ttl, tcp_header[6])
+
+                                if dst_port==22:
+                                        record_os_sample(src_ip, ttl, tcp_header[6], 'ssh')
+                                else:
+                                        # generic port-scan traffic: high volume, often crafted,
+                                        # only sample occasionally to avoid overwhelming the vote
+                                        syn_sample_counter[src_ip]+=1
+                                        if syn_sample_counter[src_ip] % SYN_SAMPLE_RATE == 0:
+                                                record_os_sample(src_ip, ttl, tcp_header[6], 'tcp_syn')
 
                                 syn_ports[src_ip].add(dst_port)
 
                                 if len(syn_ports[src_ip])>port_threshold:
                                         alert('PORT_SCAN', src_ip,
-                                              f'{len(syn_ports[src_ip])} distinct ports scanned (last hit: {dst_ip}:{dst_port}) [suspected OS: {os_fingerprint_cache[src_ip]}]',
+                                              f'{len(syn_ports[src_ip])} distinct ports scanned (last hit: {dst_ip}:{dst_port}) [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
 
                         # for brute force detection
@@ -133,7 +166,7 @@ while True:
                                 ]
                                 if len(ssh_tracker[src_ip]) >ssh_threshold:
                                         alert('SSH_BRUTE', src_ip,
-                                              f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {os_fingerprint_cache[src_ip]}]',
+                                              f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
 
                 elif protocol==1:
@@ -146,6 +179,7 @@ while True:
                         icmp_type=icmp_header[0]
 
                         if icmp_type==8: #indicates echo request
+                                record_os_sample(src_ip, ttl, 0, 'icmp')
                                 now=time.time()
                                 icmp_tracker[src_ip].append(now)
 
