@@ -4,7 +4,7 @@ import struct
 import time
 import signal
 import sys
-from collections import defaultdict
+from collections import defaultdict,Counter
 import logging
 import json
 from alert import alert
@@ -55,8 +55,12 @@ ssh_window=60
 #arp table
 arp_table={}
 
-os_fingerprint_samples = defaultdict(list)  # src_ip -> list of (guess, weight)
-MAX_SAMPLES_PER_IP = 20                     # cap memory usage per source
+# os detection logic
+OS_SAMPLE_WINDOW=100
+MAX_SAMPLES_PER_IP=20
+
+os_samples_trusted=defaultdict(list)   
+os_samples_untrusted=defaultdict(list)
 
 def classify_sample(ttl, window):
     """Raw single-packet guess, same bucket logic as before."""
@@ -78,29 +82,30 @@ def classify_sample(ttl, window):
     else:
         return "Network device / legacy Unix (likely)"
 
-def record_os_sample(src_ip, ttl, window, source_type):
-    """
-    source_type: 'icmp' (trusted, weight 3) or 'tcp_syn' (less trusted, weight 1)
-    """
-    guess = classify_sample(ttl, window)
-    weight = 3 if source_type in ('icmp', 'ssh') else 1
+def _prune(samples):
+        now=time.time()
+        fresh=[(t,g) for t,g in samples if now-t<OS_SAMPLE_WINDOW]
+        return fresh[-MAX_SAMPLES_PER_IP:]
 
-    samples = os_fingerprint_samples[src_ip]
-    samples.append((guess, weight))
-    if len(samples) > MAX_SAMPLES_PER_IP:
-        samples.pop(0)  # drop oldest, keep it a rolling window
+def record_os_sample(src_ip, ttl, window, source_type):
+        guess=classify_sample(ttl, window)
+        now=time.time()
+        bucket=os_samples_trusted if source_type in ('icmp','ssh') else os_samples_untrusted
+        bucket[src_ip]=_prune(bucket[src_ip])+[(now,guess)]
 
 def get_os_guess(src_ip):
-    """Weighted majority vote across all recent samples for this IP."""
-    samples = os_fingerprint_samples.get(src_ip)
-    if not samples:
+        trusted=_prune(os_samples_trusted.get(src_ip,[]))
+        if trusted:
+                guesses=[g for t,g in trusted]
+                return Counter(guesses).most_common(1)[0][0]
+
+        untrusted=_prune(os_samples_untrusted.get(src_ip,[]))
+        if untrusted:
+                guesses=[g for t,g in untrusted]
+                guess=Counter(guesses).most_common(1)[0][0]
+                return f"{guess} [low-confidence: from scan traffic, may reflect the scanning tool]"
+
         return "Unknown"
-
-    tally = defaultdict(int)
-    for guess, weight in samples:
-        tally[guess] += weight
-
-    return max(tally, key=tally.get)
 
 print("IDS Running..")
 
@@ -223,3 +228,4 @@ while True:
                                                 f'MAC changed from {arp_table[sender_ip]} to {sender_mac}', severity=3
                                         )
                         arp_table[sender_ip]=sender_mac
+
