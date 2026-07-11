@@ -6,6 +6,7 @@ Reads ids_alerts.log (JSON-lines written by your existing alert.py) and serves:
     GET  /            -> the dashboard frontend (static/index.html)
     GET  /api/alerts  -> recent alerts, newest first
     GET  /api/stats   -> summary counts (total, by_rule, by_severity)
+    POST /api/ingest  -> accepts alerts forwarded from remote sensors (e.g. the Pi)
     GET  /stream      -> Server-Sent Events, live alert push
 
 Run this from the same directory as ids_alerts.log (i.e. ~/ids):
@@ -25,9 +26,8 @@ import time
 from collections import deque, Counter
 from pathlib import Path
 import re
-from fastapi import Request
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -128,6 +128,7 @@ def api_stats():
         "by_severity": {str(k): v for k, v in severity_counts.items()},
     })
 
+
 @app.post("/api/ingest")
 async def api_ingest(request: Request):
     """
@@ -155,6 +156,7 @@ async def api_ingest(request: Request):
           f"src={data.get('src')} detail={data.get('detail')}")
 
     return JSONResponse({"status": "ok"})
+
 
 @app.get("/stream")
 async def stream():
