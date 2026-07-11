@@ -25,6 +25,7 @@ import time
 from collections import deque, Counter
 from pathlib import Path
 import re
+from fastapi import Request
 
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
@@ -61,6 +62,7 @@ def parse_line(line: str):
     else:
         data["os_guess"] = None
 
+    data.setdefault("sensor", "kali-sensor")
     return data
 
 def load_existing():
@@ -126,6 +128,33 @@ def api_stats():
         "by_severity": {str(k): v for k, v in severity_counts.items()},
     })
 
+@app.post("/api/ingest")
+async def api_ingest(request: Request):
+    """
+    Receives alerts forwarded from remote sensors (e.g. the Pi).
+    Feeds them into the exact same store/broadcast pipeline as
+    locally-detected alerts, so /api/alerts, /api/stats, and /stream
+    all pick them up automatically.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    data.setdefault("sensor", "pi-sensor")
+    data.setdefault("ts", time.time())
+    data.setdefault("os_guess", None)
+
+    with alerts_lock:
+        recent_alerts.append(data)
+    with clients_lock:
+        for q in clients:
+            q.put(data)
+
+    print(f"[INGEST] sensor={data.get('sensor')} rule={data.get('rule')} "
+          f"src={data.get('src')} detail={data.get('detail')}")
+
+    return JSONResponse({"status": "ok"})
 
 @app.get("/stream")
 async def stream():
