@@ -1,1 +1,4 @@
 scapy==2.7.0
+fastapi
+uvicorn
+requests
