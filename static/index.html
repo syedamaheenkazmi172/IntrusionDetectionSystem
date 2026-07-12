@@ -1,4 +1,4 @@
-!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -322,6 +322,7 @@
           <th style="width:90px;">Severity</th>
           <th style="width:160px;">Rule</th>
           <th style="width:140px;">Source IP</th>
+          <th style="width:110px;">Sensor</th>
 	  <th style="width:150px;">Suspected OS</th>
           <th>Detail</th>
         </tr>
@@ -340,7 +341,7 @@
 <script>
   // Backend contract expected here:
   //   GET  /api/alerts   -> JSON array of alert objects, newest first
-  //                         [{ rule, src, detail, severity, ts }, ...]
+  //                         [{ rule, src, detail, severity, ts, sensor }, ...]
   //   GET  /api/stats    -> { total, by_rule: {...}, by_severity: {"1":n,"2":n,"3":n} }
   //   GET  /stream       -> Server-Sent Events; each `data:` line is one
   //                         alert object (same shape as above), pushed live.
