@@ -55,18 +55,6 @@ ssh_window=60
 #arp table
 arp_table={}
 
-# for INFO-level asset visibility: note the first time we ever see an IP,
-# independent of whether anything it does looks suspicious
-known_hosts=set()
-
-def maybe_announce_new_host(ip):
-        if ip in known_hosts:
-                return
-        known_hosts.add(ip)
-        alert('NEW_HOST_SEEN', ip,
-              f'First traffic observed from {ip} [suspected OS: {get_os_guess(ip)}]',
-              severity=1)
-
 # os detection logic
 OS_SAMPLE_WINDOW=100
 MAX_SAMPLES_PER_IP=20
@@ -147,8 +135,6 @@ while True:
 
                 src_ip=socket.inet_ntoa(src)
                 dst_ip=socket.inet_ntoa(dst)
-
-                maybe_announce_new_host(src_ip)
 
                 if protocol==6:
                         try:
@@ -236,7 +222,6 @@ while True:
                 opcode=arp_header[4]
                 sender_mac=":".join(f"{b:02x}" for b in arp_header[5])
                 sender_ip=socket.inet_ntoa(arp_header[6])
-                maybe_announce_new_host(sender_ip)
                 # we only check arp replies because they can poison arp caches
                 if opcode==2:
                         if sender_ip in arp_table:
