@@ -55,6 +55,18 @@ ssh_window=60
 #arp table
 arp_table={}
 
+# for INFO-level asset visibility: note the first time we ever see an IP,
+# independent of whether anything it does looks suspicious
+known_hosts=set()
+
+def maybe_announce_new_host(ip):
+        if ip in known_hosts:
+                return
+        known_hosts.add(ip)
+        alert('NEW_HOST_SEEN', ip,
+              f'First traffic observed from {ip} [suspected OS: {get_os_guess(ip)}]',
+              severity=1)
+
 # os detection logic
 OS_SAMPLE_WINDOW=100
 MAX_SAMPLES_PER_IP=20
@@ -136,6 +148,8 @@ while True:
                 src_ip=socket.inet_ntoa(src)
                 dst_ip=socket.inet_ntoa(dst)
 
+                maybe_announce_new_host(src_ip)
+
                 if protocol==6:
                         try:
                                 tcp=raw_data[34:54]
@@ -184,7 +198,8 @@ while True:
                                               f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
                                         # high-confidence attack, worth an automatic block
-                                        block_ip(src_ip, enforce=args.enforce)
+                                        block_ip(src_ip, enforce=args.enforce,
+                                                 reason='SSH_BRUTE', os_guess=get_os_guess(src_ip))
 
                 elif protocol==1:
                         icmp=raw_data[34:42]
@@ -208,7 +223,8 @@ while True:
                                 if len(icmp_tracker[src_ip])>icmp_threshold:
                                         alert('ICMP_FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
 					# same deal -- flood is unambiguous enough to act on
-                                        block_ip(src_ip, enforce=args.enforce)
+                                        block_ip(src_ip, enforce=args.enforce,
+                                                 reason='ICMP_FLOOD', os_guess=get_os_guess(src_ip))
 
         elif ethertype==0x0806:
                 # skipping ethernet header and extracting arp packet
@@ -220,6 +236,7 @@ while True:
                 opcode=arp_header[4]
                 sender_mac=":".join(f"{b:02x}" for b in arp_header[5])
                 sender_ip=socket.inet_ntoa(arp_header[6])
+                maybe_announce_new_host(sender_ip)
                 # we only check arp replies because they can poison arp caches
                 if opcode==2:
                         if sender_ip in arp_table:
@@ -228,4 +245,3 @@ while True:
                                                 f'MAC changed from {arp_table[sender_ip]} to {sender_mac}', severity=3
                                         )
                         arp_table[sender_ip]=sender_mac
-
