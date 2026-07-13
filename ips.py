@@ -2,6 +2,7 @@ import subprocess
 import sys
 import argparse
 import socket
+from alert import alert
 
 # IPs that must never be blocked, no matter what
 ALLOWLIST = {
@@ -12,17 +13,27 @@ ALLOWLIST = {
 
 blocked_ips = set()  # tracks what we've blocked this run, for cleanup
 
+# per-ip metadata (reason/os) for the notification, since block_ip() itself
+# doesn't know *why* it's being called -- ids.py passes that context in
+blocked_meta = {}
 
-def block_ip(ip, enforce=False):
+
+def block_ip(ip, enforce=False, reason=None, os_guess=None):
     if ip in ALLOWLIST:
         print(f"[IPS] Refusing to block allowlisted IP: {ip}")
         return
     if ip in blocked_ips:
         return  # already blocked (or already logged as dry-run), don't re-issue
 
+    blocked_meta[ip] = {"reason": reason, "os_guess": os_guess}
+    detail_bits = [f"triggered by {reason}" if reason else "auto-blocked"]
+    if os_guess:
+        detail_bits.append(f"suspected OS: {os_guess}")
+
     if not enforce:
         print(f"[IPS] (dry-run) Would block {ip}")
         blocked_ips.add(ip)
+        alert('IP_BLOCKED', ip, f"(dry-run) {', '.join(detail_bits)}", severity=3)
         return
 
     try:
@@ -32,11 +43,12 @@ def block_ip(ip, enforce=False):
         )
         blocked_ips.add(ip)
         print(f"[IPS] Blocked {ip}")
+        alert('IP_BLOCKED', ip, ", ".join(detail_bits), severity=3)
     except subprocess.CalledProcessError as e:
         print(f"[IPS] Failed to block {ip}: {e}")
 
 
-def unblock_ip(ip, enforce=True):
+def unblock_ip(ip, enforce=True, notify=True):
     """Remove a single DROP rule for ip, regardless of whether this
     process tracked it. Safe to call even if no rule exists (ignored)."""
     try:
@@ -48,6 +60,11 @@ def unblock_ip(ip, enforce=True):
     except subprocess.CalledProcessError as e:
         print(f"[IPS] No matching rule to remove for {ip} (or error): {e}")
     blocked_ips.discard(ip)
+    blocked_meta.pop(ip, None)
+    # notify=False on shutdown cleanup so ctrl+c doesn't spam the dashboard
+    # with an UNBLOCKED alert for every rule we're tearing down
+    if notify:
+        alert('IP_UNBLOCKED', ip, 'Manually unblocked via dashboard', severity=1)
 
 
 def unblock_all(enforce=False):
@@ -55,8 +72,9 @@ def unblock_all(enforce=False):
     for ip in list(blocked_ips):
         if not enforce:
             continue
-        unblock_ip(ip)
+        unblock_ip(ip, notify=False)
     blocked_ips.clear()
+    blocked_meta.clear()
 
 
 if __name__ == "__main__":
