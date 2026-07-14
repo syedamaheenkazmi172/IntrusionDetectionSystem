@@ -13,10 +13,6 @@ ALLOWLIST = {
 
 blocked_ips = set()  # tracks what we've blocked this run, for cleanup
 
-# per-ip metadata (reason/os) for the notification, since block_ip() itself
-# doesn't know *why* it's being called -- ids.py passes that context in
-blocked_meta = {}
-
 
 def block_ip(ip, enforce=False, reason=None, os_guess=None):
     if ip in ALLOWLIST:
@@ -25,7 +21,6 @@ def block_ip(ip, enforce=False, reason=None, os_guess=None):
     if ip in blocked_ips:
         return  # already blocked (or already logged as dry-run), don't re-issue
 
-    blocked_meta[ip] = {"reason": reason, "os_guess": os_guess}
     detail_bits = [f"triggered by {reason}" if reason else "auto-blocked"]
     if os_guess:
         detail_bits.append(f"suspected OS: {os_guess}")
@@ -60,7 +55,6 @@ def unblock_ip(ip, enforce=True, notify=True):
     except subprocess.CalledProcessError as e:
         print(f"[IPS] No matching rule to remove for {ip} (or error): {e}")
     blocked_ips.discard(ip)
-    blocked_meta.pop(ip, None)
     # notify=False on shutdown cleanup so ctrl+c doesn't spam the dashboard
     # with an UNBLOCKED alert for every rule we're tearing down
     if notify:
@@ -74,7 +68,6 @@ def unblock_all(enforce=False):
             continue
         unblock_ip(ip, notify=False)
     blocked_ips.clear()
-    blocked_meta.clear()
 
 
 if __name__ == "__main__":
