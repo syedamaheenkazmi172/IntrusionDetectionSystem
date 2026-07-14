@@ -5,26 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IDS Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0a0d13;
-    --panel: #10141d;
-    --panel-border: #1e2530;
-    --text: #dde3ed;
-    --text-dim: #6b7688;
-    --info: #4f9eff;
-    --warn: #ffab2e;
-    --crit: #ff4d5e;
-    --ok: #3ddc84;
+    --ink: #0b1220;
+    --panel: #121c2e;
+    --line: #263449;
+    --parchment: #e9e3d6;
+    --muted: #8291a6;
+    --brass: #c9903f;
+    --alarm: #d1495b;
+    --teal: #5fb3a3;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: 'IBM Plex Sans', sans-serif;
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
@@ -37,8 +37,8 @@
     pointer-events: none;
     background: repeating-linear-gradient(
       0deg,
-      rgba(255,255,255,0.012) 0px,
-      rgba(255,255,255,0.012) 1px,
+      rgba(233,227,214,0.010) 0px,
+      rgba(233,227,214,0.010) 1px,
       transparent 1px,
       transparent 3px
     );
@@ -53,98 +53,158 @@
 
   header {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--panel-border);
-    margin-bottom: 24px;
-  }
-
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 18px;
+    gap: 20px;
   }
 
   .brand h1 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    color: var(--parchment);
   }
 
   .brand .tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 0.08em;
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
   }
 
   .status {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
   }
 
   .status .dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--text-dim);
-    position: relative;
+    background: var(--muted);
     flex-shrink: 0;
   }
 
-  .status.live .dot {
-    background: var(--ok);
-    box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.6);
-    animation: pulse 1.8s infinite;
+  .status.live .dot { background: var(--teal); animation: dot-breathe 2.2s ease-in-out infinite; }
+  .status.live { color: var(--teal); }
+
+  @keyframes dot-breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
   }
 
-  .status.live { color: var(--ok); }
+  /* Signature element: live seismograph strip */
+  .seismo {
+    position: relative;
+    height: 54px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background:
+      linear-gradient(var(--panel), var(--panel)) padding-box,
+      repeating-linear-gradient(90deg, rgba(233,227,214,0.06) 0 1px, transparent 1px 22px);
+    background-size: auto, 220px 100%;
+    animation: tape-scroll 7s linear infinite;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
 
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.55); }
-    70%  { box-shadow: 0 0 0 8px rgba(61, 220, 132, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0); }
+  @keyframes tape-scroll {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 0, -220px 0; }
+  }
+
+  .seismo::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .seismo-label {
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-transform: uppercase;
+    z-index: 2;
+  }
+
+  .seismo-spike {
+    position: absolute;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 1px;
+    z-index: 1;
   }
 
   .stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 22px;
   }
 
   .stat-card {
     background: var(--panel);
-    border: 1px solid var(--panel-border);
+    border: 1px solid var(--line);
     border-radius: 6px;
-    padding: 16px 18px;
+    padding: 14px 16px;
+    position: relative;
+  }
+
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--line);
   }
 
   .stat-card .num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 26px;
-    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 25px;
+    font-weight: 600;
     line-height: 1;
+    color: var(--parchment);
   }
 
   .stat-card .label {
-    font-size: 11px;
-    color: var(--text-dim);
+    font-size: 10.5px;
+    color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 6px;
+    letter-spacing: 0.1em;
+    margin-top: 7px;
   }
 
-  .stat-card.crit .num { color: var(--crit); }
-  .stat-card.warn .num { color: var(--warn); }
-  .stat-card.info .num { color: var(--info); }
+  .stat-card.crit::before { background: var(--alarm); }
+  .stat-card.crit .num { color: var(--alarm); }
+  .stat-card.warn::before { background: var(--brass); }
+  .stat-card.warn .num { color: var(--brass); }
+  .stat-card.info::before { background: var(--teal); }
+  .stat-card.info .num { color: var(--teal); }
 
   .filters {
     display: flex;
@@ -154,33 +214,149 @@
   }
 
   .filter-btn {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.04em;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     background: transparent;
-    border: 1px solid var(--panel-border);
-    color: var(--text-dim);
-    padding: 6px 12px;
-    border-radius: 4px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 7px 13px;
+    border-radius: 3px;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .filter-btn:hover {
-    border-color: var(--text-dim);
-    color: var(--text);
+    border-color: var(--muted);
+    color: var(--parchment);
   }
 
   .filter-btn.active {
-    background: var(--text);
-    border-color: var(--text);
-    color: var(--bg);
+    background: var(--brass);
+    border-color: var(--brass);
+    color: var(--ink);
+  }
+
+  .blocked-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--alarm);
+    color: var(--alarm);
+    padding: 7px 13px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .blocked-btn:hover { background: rgba(209,73,91,0.12); }
+
+  .blocked-count {
+    display: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    background: var(--alarm);
+    color: var(--ink);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-weight: 700;
+  }
+
+  .log-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    padding: 7px 13px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .log-btn:hover { background: rgba(95,179,163,0.12); }
+
+  .section-heading {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+
+  .chart-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .chart-card canvas { max-height: 180px; }
+
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+
+  .log-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .log-filters input, .log-filters select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--parchment);
+    padding: 6px 9px;
+    border-radius: 3px;
+  }
+
+  .log-filters input::placeholder { color: var(--muted); }
+
+  .log-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--line);
   }
 
   .panel {
     background: var(--panel);
-    border: 1px solid var(--panel-border);
-    border-radius: 8px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
     overflow: hidden;
   }
 
@@ -191,23 +367,23 @@
 
   thead th {
     text-align: left;
-    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--panel-border);
+    border-bottom: 1px solid var(--line);
   }
 
   tbody tr {
-    border-bottom: 1px solid var(--panel-border);
+    border-bottom: 1px solid var(--line);
     transition: background 0.15s ease;
   }
 
   tbody tr:last-child { border-bottom: none; }
-
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr:hover { background: rgba(233,227,214,0.025); }
 
   tbody td {
     padding: 11px 16px;
@@ -215,62 +391,187 @@
     vertical-align: middle;
   }
 
-  td.mono, .mono {
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  td.time { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
-
-  td.detail { color: var(--text-dim); }
+  td.mono, .mono { font-family: 'IBM Plex Mono', monospace; }
+  td.time { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  td.detail { color: var(--muted); }
 
   .badge {
     display: inline-block;
-    padding: 3px 9px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
     white-space: nowrap;
+    background: transparent;
   }
 
-  .badge.sev-1 { background: rgba(79,158,255,0.14); color: var(--info); }
-  .badge.sev-2 { background: rgba(255,171,46,0.14); color: var(--warn); }
-  .badge.sev-3 { background: rgba(255,77,94,0.14); color: var(--crit); }
+  .badge.sev-1 { color: var(--teal); }
+  .badge.sev-2 { color: var(--brass); }
+  .badge.sev-3 { color: var(--alarm); }
 
   .rule-tag {
     font-weight: 600;
     font-size: 12.5px;
+    letter-spacing: 0.01em;
   }
 
   .empty {
-    padding: 48px 20px;
+    padding: 46px 20px;
     text-align: center;
-    color: var(--text-dim);
+    color: var(--muted);
   }
 
   .empty .big {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     margin-bottom: 6px;
+    color: var(--parchment);
   }
 
-  .new-row {
-    animation: flash-in 1.1s ease-out;
-  }
+  .new-row { animation: flash-in 1.1s ease-out; }
 
   @keyframes flash-in {
-    from { background: rgba(255,77,94,0.16); }
+    from { background: rgba(209,73,91,0.14); }
     to   { background: transparent; }
+  }
+
+  /* Blocked IPs modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4,7,12,0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+  }
+
+  .modal-panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    width: min(880px, 100%);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .modal-header h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--parchment);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .modal-close:hover { color: var(--parchment); }
+  .modal-body { overflow-y: auto; }
+
+  .unblock-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .unblock-btn:hover { background: rgba(95,179,163,0.14); }
+
+  .unblock-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+
+  /* Toasts */
+  .toast-stack {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 3000;
+    width: 300px;
+  }
+
+  .toast {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--alarm);
+    border-radius: 5px;
+    padding: 12px 14px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+    animation: toast-in 0.2s ease-out;
+  }
+
+  .toast.unblock { border-left-color: var(--teal); }
+
+  .toast .toast-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--alarm);
+    margin-bottom: 4px;
+  }
+
+  .toast.unblock .toast-title { color: var(--teal); }
+
+  .toast .toast-detail {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  @keyframes toast-in {
+    from { transform: translateX(20px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes toast-out {
+    to { transform: translateX(20px); opacity: 0; }
   }
 
   @media (max-width: 720px) {
     .stats { grid-template-columns: repeat(2, 1fr); }
     td.detail { display: none; }
+  }
+
   @media (max-width: 900px) {
     td:nth-child(5) { display: none; }
-  } 
- }
+  }
 </style>
 </head>
 <body>
@@ -279,14 +580,37 @@
 
   <header>
     <div class="brand">
-      <h1>IDS_CONSOLE</h1>
-      <span class="tag">// alert monitor</span>
+      <h1>IDS Console</h1>
+      <span class="tag">Network watch log</span>
     </div>
-    <div class="status" id="status">
-      <span class="dot"></span>
-      <span id="status-text">CONNECTING</span>
+    <div class="header-right">
+      <button class="log-btn" id="log-btn">Audit Log</button>
+      <button class="blocked-btn" id="blocked-btn">
+        Blocked IPs
+        <span class="blocked-count" id="blocked-count">0</span>
+      </button>
+      <div class="status" id="status">
+        <span class="dot"></span>
+        <span id="status-text">CONNECTING</span>
+      </div>
     </div>
   </header>
+
+  <div class="seismo" id="seismo-strip">
+    <span class="seismo-label">Live disturbance feed</span>
+  </div>
+
+  <div class="section-heading">Traffic overview</div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Alert volume — last 6h</div>
+      <canvas id="chart-volume" height="140"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Top rule types</div>
+      <canvas id="chart-rules" height="140"></canvas>
+    </div>
+  </div>
 
   <div class="stats">
     <div class="stat-card">
@@ -308,10 +632,10 @@
   </div>
 
   <div class="filters" id="filters">
-    <button class="filter-btn active" data-filter="all">ALL</button>
-    <button class="filter-btn" data-filter="3">CRITICAL</button>
-    <button class="filter-btn" data-filter="2">WARNING</button>
-    <button class="filter-btn" data-filter="1">INFO</button>
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="3">Critical</button>
+    <button class="filter-btn" data-filter="2">Warning</button>
+    <button class="filter-btn" data-filter="1">Info</button>
   </div>
 
   <div class="panel">
@@ -323,7 +647,7 @@
           <th style="width:160px;">Rule</th>
           <th style="width:140px;">Source IP</th>
           <th style="width:110px;">Sensor</th>
-	  <th style="width:150px;">Suspected OS</th>
+	  <th style="width:190px;">Suspected OS</th>
           <th>Detail</th>
         </tr>
       </thead>
@@ -331,24 +655,129 @@
       </tbody>
     </table>
     <div class="empty" id="empty-state" style="display:none;">
-      <div class="big">NO ALERTS YET</div>
+      <div class="big">No alerts yet</div>
       <div>Listening for events from the IDS backend&hellip;</div>
     </div>
   </div>
 
 </div>
 
+<!-- Blocked IPs modal -->
+<div class="modal-overlay" id="blocked-overlay">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h2>Blocked IPs</h2>
+      <button class="modal-close" id="blocked-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:140px;">IP</th>
+            <th style="width:110px;">Sensor</th>
+            <th style="width:140px;">Reason</th>
+            <th style="width:190px;">Suspected OS</th>
+            <th style="width:150px;">Blocked At</th>
+            <th style="width:110px;"></th>
+          </tr>
+        </thead>
+        <tbody id="blocked-body"></tbody>
+      </table>
+      <div class="empty" id="blocked-empty" style="display:none;">
+        <div class="big">No IPs currently blocked</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Audit Log modal -->
+<div class="modal-overlay" id="log-overlay">
+  <div class="modal-panel" style="width:min(1040px, 100%);">
+    <div class="modal-header">
+      <h2>Audit Log</h2>
+      <button class="modal-close" id="log-close">&times;</button>
+    </div>
+    <div class="log-filters">
+      <input type="datetime-local" id="log-start" title="From">
+      <input type="datetime-local" id="log-end" title="To">
+      <select id="log-rule">
+        <option value="">All rules</option>
+        <option value="PORT_SCAN">PORT_SCAN</option>
+        <option value="SSH_BRUTE">SSH_BRUTE</option>
+        <option value="ICMP_FLOOD">ICMP_FLOOD</option>
+        <option value="ARP_SPOOF">ARP_SPOOF</option>
+        <option value="MULTI_STAGE_ATTACK">MULTI_STAGE_ATTACK</option>
+        <option value="NEW_HOST_SEEN">NEW_HOST_SEEN</option>
+        <option value="IP_BLOCKED">IP_BLOCKED</option>
+        <option value="IP_UNBLOCKED">IP_UNBLOCKED</option>
+      </select>
+      <select id="log-severity">
+        <option value="">All severities</option>
+        <option value="3">Critical</option>
+        <option value="2">Warning</option>
+        <option value="1">Info</option>
+      </select>
+      <select id="log-sensor">
+        <option value="">All sensors</option>
+        <option value="kali-sensor">kali-sensor</option>
+        <option value="pi-sensor">pi-sensor</option>
+      </select>
+      <input type="text" id="log-src" placeholder="Source IP contains…">
+      <input type="text" id="log-q" placeholder="Search detail…">
+      <button class="filter-btn" id="log-search-btn">Search</button>
+    </div>
+    <div class="log-actions">
+      <span class="mono" id="log-count" style="color:var(--muted); font-size:11px;"></span>
+      <div style="display:flex; gap:8px;">
+        <button class="unblock-btn" id="log-export-csv">Export CSV</button>
+        <button class="unblock-btn" id="log-export-json">Export JSON</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:150px;">Time</th>
+            <th style="width:80px;">Sev</th>
+            <th style="width:150px;">Rule</th>
+            <th style="width:130px;">Source</th>
+            <th style="width:100px;">Sensor</th>
+            <th style="width:170px;">Suspected OS</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+      <div class="empty" id="log-empty" style="display:none;">
+        <div class="big">No matching log entries</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
 <script>
   // Backend contract expected here:
   //   GET  /api/alerts   -> JSON array of alert objects, newest first
   //                         [{ rule, src, detail, severity, ts, sensor }, ...]
   //   GET  /api/stats    -> { total, by_rule: {...}, by_severity: {"1":n,"2":n,"3":n} }
+  //   GET  /api/blocked  -> JSON array of currently-blocked IPs
+  //                         [{ ip, sensor, reason, os_guess, detail, ts }, ...]
+  //   POST /api/unblock  -> { ip } -> unblocks locally-blocked IPs
   //   GET  /stream       -> Server-Sent Events; each `data:` line is one
   //                         alert object (same shape as above), pushed live.
+  //                         IP_BLOCKED / IP_UNBLOCKED are alerts too.
 
   const SEV_LABEL = { 1: "INFO", 2: "WARN", 3: "CRIT" };
   let currentFilter = "all";
   let allAlerts = [];
+  let blockedIps = new Map();   // ip -> {ip, sensor, reason, os_guess, detail, ts}
+  let blockedModalOpen = false;
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
 
   const tbody = document.getElementById("alert-body");
   const emptyState = document.getElementById("empty-state");
@@ -363,9 +792,9 @@
 
 function rowHTML(a, isNew) {
     const sev = a.severity || 2;
-    const osGuess = a.os_guess ? a.os_guess : '<span style="color:var(--text-dim)">—</span>';
+    const osGuess = a.os_guess ? a.os_guess : '<span style="color:var(--muted)">—</span>';
     const sensor = a.sensor || 'kali-sensor';
-    const sensorColor = sensor === 'pi-sensor' ? 'var(--info)' : 'var(--ok)';
+    const sensorColor = sensor === 'pi-sensor' ? 'var(--teal)' : 'var(--brass)';
     return `
       <tr class="${isNew ? 'new-row' : ''}" data-sev="${sev}">
         <td class="time mono">${fmtTime(a.ts)}</td>
@@ -373,7 +802,7 @@ function rowHTML(a, isNew) {
         <td class="rule-tag mono">${a.rule}</td>
         <td class="mono">${a.src}</td>
         <td class="mono" style="color:${sensorColor}; font-size:11px; font-weight:600;">${sensor}</td>
-        <td class="mono" style="color:var(--text-dim); font-size:12px;">${osGuess}</td>
+        <td class="mono" style="color:var(--muted); font-size:12px;">${osGuess}</td>
         <td class="detail">${a.detail}</td>
       </tr>`;
 }
@@ -400,6 +829,8 @@ function rowHTML(a, isNew) {
     tbody.insertAdjacentHTML("afterbegin", rowHTML(a, true));
     applyFilter();
     bumpStats(a.severity);
+    spikeSeismo(a.severity);
+    scheduleChartRefresh();
   }
 
   function bumpStats(sev) {
@@ -408,6 +839,32 @@ function rowHTML(a, isNew) {
     const map = { 1: "stat-info", 2: "stat-warn", 3: "stat-crit" };
     const el = document.getElementById(map[sev]);
     if (el) el.textContent = (parseInt(el.textContent, 10) || 0) + 1;
+  }
+
+  // ---------- Seismograph strip (signature element) ----------
+  // Every live alert is drawn as a spike sweeping across the strip,
+  // height/color keyed to severity -- a literal "disturbance" reading.
+  function spikeSeismo(sev) {
+    const strip = document.getElementById("seismo-strip");
+    if (!strip) return;
+    const heights = { 1: 14, 2: 28, 3: 46 };
+    const colors = { 1: "var(--teal)", 2: "var(--brass)", 3: "var(--alarm)" };
+    const bar = document.createElement("div");
+    bar.className = "seismo-spike";
+    bar.style.height = (heights[sev] || 18) + "px";
+    bar.style.background = colors[sev] || "var(--teal)";
+    bar.style.right = "-4px";
+    strip.appendChild(bar);
+
+    if (bar.animate) {
+      const anim = bar.animate(
+        [{ right: "-4px" }, { right: "104%" }],
+        { duration: 9000, easing: "linear" }
+      );
+      anim.onfinish = () => bar.remove();
+    } else {
+      setTimeout(() => bar.remove(), 9000);
+    }
   }
 
   function loadStats() {
@@ -432,6 +889,146 @@ function rowHTML(a, isNew) {
       });
   }
 
+  // ---------- Blocked IPs panel ----------
+
+  function updateBlockedBadge() {
+    const badge = document.getElementById("blocked-count");
+    const n = blockedIps.size;
+    badge.textContent = n;
+    badge.style.display = n > 0 ? "inline-block" : "none";
+  }
+
+  function reasonFromDetail(detail) {
+    const m = (detail || "").match(/triggered by ([A-Z_]+)/);
+    return m ? m[1] : null;
+  }
+
+  function renderBlockedTable() {
+    const body = document.getElementById("blocked-body");
+    const empty = document.getElementById("blocked-empty");
+    const rows = Array.from(blockedIps.values()).sort((a, b) => b.ts - a.ts);
+
+    if (rows.length === 0) {
+      body.innerHTML = "";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    body.innerHTML = rows.map(b => {
+      const osGuess = b.os_guess ? b.os_guess : '<span style="color:var(--muted)">—</span>';
+      const sensor = b.sensor || "kali-sensor";
+      const isLocal = sensor === "kali-sensor";
+      const sensorColor = isLocal ? "var(--brass)" : "var(--teal)";
+      const reason = b.reason || reasonFromDetail(b.detail) || "—";
+      const btnAttrs = isLocal
+        ? `data-ip="${b.ip}"`
+        : `disabled title="Blocked by a remote sensor -- unblock it there for now (see chat)"`;
+      return `
+        <tr data-ip-row="${b.ip}">
+          <td class="mono">${b.ip}</td>
+          <td class="mono" style="color:${sensorColor}; font-size:11px; font-weight:600;">${sensor}</td>
+          <td class="mono">${reason}</td>
+          <td class="mono" style="color:var(--muted); font-size:12px;">${osGuess}</td>
+          <td class="time mono">${fmtTime(b.ts)}</td>
+          <td><button class="unblock-btn" ${btnAttrs}>Unblock</button></td>
+        </tr>`;
+    }).join("");
+  }
+
+  function loadBlocked() {
+    fetch("/api/blocked")
+      .then(r => r.json())
+      .then(list => {
+        blockedIps = new Map(list.map(b => [b.ip, b]));
+        updateBlockedBadge();
+        if (blockedModalOpen) renderBlockedTable();
+      })
+      .catch(() => {});
+  }
+
+  function openBlockedModal() {
+    blockedModalOpen = true;
+    document.getElementById("blocked-overlay").style.display = "flex";
+    renderBlockedTable();
+    loadBlocked(); // resync in case anything happened before opening
+  }
+
+  function closeBlockedModal() {
+    blockedModalOpen = false;
+    document.getElementById("blocked-overlay").style.display = "none";
+  }
+
+  document.getElementById("blocked-btn").addEventListener("click", openBlockedModal);
+  document.getElementById("blocked-close").addEventListener("click", closeBlockedModal);
+  document.getElementById("blocked-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "blocked-overlay") closeBlockedModal();
+  });
+
+  document.getElementById("blocked-body").addEventListener("click", (e) => {
+    const btn = e.target.closest(".unblock-btn");
+    if (!btn || btn.disabled || !btn.dataset.ip) return;
+    const ip = btn.dataset.ip;
+    btn.disabled = true;
+    btn.textContent = "...";
+    fetch("/api/unblock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ip })
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showToast("block", "Unblock failed", data.error || "Unknown error.");
+          btn.disabled = false;
+          btn.textContent = "Unblock";
+        }
+        // on success, the IP_UNBLOCKED SSE event removes the row for us
+      })
+      .catch(() => {
+        showToast("block", "Unblock failed", "Network error reaching the dashboard backend.");
+        btn.disabled = false;
+        btn.textContent = "Unblock";
+      });
+  });
+
+  // ---------- Toasts ----------
+
+  function showToast(kind, title, detail) {
+    const stack = document.getElementById("toast-stack");
+    const el = document.createElement("div");
+    el.className = "toast" + (kind === "unblock" ? " unblock" : "");
+    el.innerHTML = `<div class="toast-title">${title}</div><div class="toast-detail">${detail}</div>`;
+    stack.appendChild(el);
+    setTimeout(() => {
+      el.style.animation = "toast-out 0.2s ease-in forwards";
+      setTimeout(() => el.remove(), 200);
+    }, 6000);
+  }
+
+  function handleBlockedEvent(a) {
+    blockedIps.set(a.src, {
+      ip: a.src,
+      sensor: a.sensor || "kali-sensor",
+      os_guess: a.os_guess,
+      detail: a.detail,
+      ts: a.ts,
+      reason: reasonFromDetail(a.detail)
+    });
+    updateBlockedBadge();
+    if (blockedModalOpen) renderBlockedTable();
+    showToast("block", `IP blocked — ${a.src}`, a.detail || "");
+  }
+
+  function handleUnblockedEvent(a) {
+    blockedIps.delete(a.src);
+    updateBlockedBadge();
+    if (blockedModalOpen) renderBlockedTable();
+    showToast("unblock", `IP unblocked — ${a.src}`, a.detail || "");
+  }
+
+  // ---------- SSE ----------
+
   function connectStream() {
     const es = new EventSource("/stream");
 
@@ -442,8 +1039,13 @@ function rowHTML(a, isNew) {
 
     es.onmessage = (e) => {
       try {
-        const alert = JSON.parse(e.data);
-        prependAlert(alert);
+        const alertData = JSON.parse(e.data);
+        prependAlert(alertData);
+        if (alertData.rule === "IP_BLOCKED") {
+          handleBlockedEvent(alertData);
+        } else if (alertData.rule === "IP_UNBLOCKED") {
+          handleUnblockedEvent(alertData);
+        }
       } catch (err) { /* ignore malformed payloads */ }
     };
 
@@ -452,6 +1054,180 @@ function rowHTML(a, isNew) {
       statusText.textContent = "RECONNECTING";
     };
   }
+
+  // ---------- Traffic charts ----------
+
+  let volumeChart, rulesChart, chartRefreshTimer = null;
+
+  function fmtBucketLabel(t) {
+    const d = new Date(t * 1000);
+    return d.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
+  }
+
+  function initCharts() {
+    if (typeof Chart === "undefined") return; // cdn didn't load, fail quietly
+    const gridColor = "rgba(233,227,214,0.06)";
+    Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+    Chart.defaults.font.size = 10.5;
+    Chart.defaults.color = cssVar("--muted");
+
+    const teal = cssVar("--teal"), brass = cssVar("--brass"), alarm = cssVar("--alarm");
+
+    volumeChart = new Chart(document.getElementById("chart-volume").getContext("2d"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          { label: "Info", data: [], borderColor: teal, backgroundColor: teal + "2e", fill: true, tension: 0.25, stack: "s", pointRadius: 0, borderWidth: 1.5 },
+          { label: "Warn", data: [], borderColor: brass, backgroundColor: brass + "2e", fill: true, tension: 0.25, stack: "s", pointRadius: 0, borderWidth: 1.5 },
+          { label: "Crit", data: [], borderColor: alarm, backgroundColor: alarm + "2e", fill: true, tension: 0.25, stack: "s", pointRadius: 0, borderWidth: 1.5 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { maxTicksLimit: 7 } },
+          y: { stacked: true, beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } }
+        },
+        plugins: { legend: { labels: { boxWidth: 10, boxHeight: 10 } } }
+      }
+    });
+
+    rulesChart = new Chart(document.getElementById("chart-rules").getContext("2d"), {
+      type: "bar",
+      data: { labels: [], datasets: [{ label: "Count", data: [], backgroundColor: brass, borderRadius: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, indexAxis: "y",
+        scales: {
+          x: { grid: { color: gridColor }, beginAtZero: true, ticks: { precision: 0 } },
+          y: { grid: { display: false } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  function refreshVolumeChart() {
+    if (!volumeChart) return;
+    fetch("/api/timeseries?hours=6&bucket_seconds=300")
+      .then(r => r.json())
+      .then(data => {
+        volumeChart.data.labels = data.points.map(p => fmtBucketLabel(p.t));
+        volumeChart.data.datasets[0].data = data.points.map(p => p.info);
+        volumeChart.data.datasets[1].data = data.points.map(p => p.warn);
+        volumeChart.data.datasets[2].data = data.points.map(p => p.crit);
+        volumeChart.update("none");
+      })
+      .catch(() => {});
+  }
+
+  function refreshRulesChart() {
+    if (!rulesChart) return;
+    fetch("/api/stats")
+      .then(r => r.json())
+      .then(s => {
+        const entries = Object.entries(s.by_rule || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        rulesChart.data.labels = entries.map(e => e[0]);
+        rulesChart.data.datasets[0].data = entries.map(e => e[1]);
+        rulesChart.update("none");
+      })
+      .catch(() => {});
+  }
+
+  function scheduleChartRefresh() {
+    // live alerts can arrive in quick bursts -- debounce so we don't
+    // hammer /api/timeseries and /api/stats on every single one
+    if (chartRefreshTimer) return;
+    chartRefreshTimer = setTimeout(() => {
+      refreshVolumeChart();
+      refreshRulesChart();
+      chartRefreshTimer = null;
+    }, 4000);
+  }
+
+  // ---------- Audit log (full on-disk history, not just the live window) ----------
+
+  function buildLogParams(extra) {
+    const params = new URLSearchParams();
+    const start = document.getElementById("log-start").value;
+    const end = document.getElementById("log-end").value;
+    const rule = document.getElementById("log-rule").value;
+    const severity = document.getElementById("log-severity").value;
+    const sensor = document.getElementById("log-sensor").value;
+    const src = document.getElementById("log-src").value.trim();
+    const q = document.getElementById("log-q").value.trim();
+    if (start) params.set("start", Math.floor(new Date(start).getTime() / 1000));
+    if (end) params.set("end", Math.floor(new Date(end).getTime() / 1000));
+    if (rule) params.set("rule", rule);
+    if (severity) params.set("severity", severity);
+    if (sensor) params.set("sensor", sensor);
+    if (src) params.set("src", src);
+    if (q) params.set("q", q);
+    Object.entries(extra || {}).forEach(([k, v]) => params.set(k, v));
+    return params;
+  }
+
+  function renderLogTable(rows) {
+    const body = document.getElementById("log-body");
+    const empty = document.getElementById("log-empty");
+    if (!rows.length) {
+      body.innerHTML = "";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    body.innerHTML = rows.map(a => {
+      const sev = a.severity || 2;
+      const osGuess = a.os_guess ? a.os_guess : '<span style="color:var(--muted)">—</span>';
+      return `
+        <tr>
+          <td class="time mono">${fmtTime(a.ts)}</td>
+          <td><span class="badge sev-${sev}">${SEV_LABEL[sev] || sev}</span></td>
+          <td class="rule-tag mono">${a.rule}</td>
+          <td class="mono">${a.src || ""}</td>
+          <td class="mono" style="font-size:11px;">${a.sensor || ""}</td>
+          <td class="mono" style="color:var(--muted); font-size:12px;">${osGuess}</td>
+          <td class="detail">${a.detail || ""}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  function searchLogs() {
+    const params = buildLogParams({ limit: 500 });
+    fetch("/api/logs?" + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        renderLogTable(data.results || []);
+        document.getElementById("log-count").textContent =
+          `${data.returned} of ${data.total_matched} matched`;
+      })
+      .catch(() => {
+        document.getElementById("log-count").textContent = "search failed";
+      });
+  }
+
+  function openLogModal() {
+    document.getElementById("log-overlay").style.display = "flex";
+    searchLogs();
+  }
+
+  function closeLogModal() {
+    document.getElementById("log-overlay").style.display = "none";
+  }
+
+  document.getElementById("log-btn").addEventListener("click", openLogModal);
+  document.getElementById("log-close").addEventListener("click", closeLogModal);
+  document.getElementById("log-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "log-overlay") closeLogModal();
+  });
+  document.getElementById("log-search-btn").addEventListener("click", searchLogs);
+  document.getElementById("log-export-csv").addEventListener("click", () => {
+    window.open("/api/logs/export?" + buildLogParams({ format: "csv" }).toString(), "_blank");
+  });
+  document.getElementById("log-export-json").addEventListener("click", () => {
+    window.open("/api/logs/export?" + buildLogParams({ format: "json" }).toString(), "_blank");
+  });
 
   document.getElementById("filters").addEventListener("click", (e) => {
     if (!e.target.classList.contains("filter-btn")) return;
@@ -463,7 +1239,12 @@ function rowHTML(a, isNew) {
 
   loadInitialAlerts();
   loadStats();
+  loadBlocked();
   connectStream();
+  initCharts();
+  refreshVolumeChart();
+  refreshRulesChart();
+  setInterval(() => { refreshVolumeChart(); refreshRulesChart(); }, 30000);
 </script>
 
 </body>

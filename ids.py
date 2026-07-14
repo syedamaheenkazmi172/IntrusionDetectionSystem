@@ -184,7 +184,8 @@ while True:
                                               f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
                                         # high-confidence attack, worth an automatic block
-                                        block_ip(src_ip, enforce=args.enforce)
+                                        block_ip(src_ip, enforce=args.enforce,
+                                                 reason='SSH_BRUTE', os_guess=get_os_guess(src_ip))
 
                 elif protocol==1:
                         icmp=raw_data[34:42]
@@ -208,7 +209,8 @@ while True:
                                 if len(icmp_tracker[src_ip])>icmp_threshold:
                                         alert('ICMP_FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
 					# same deal -- flood is unambiguous enough to act on
-                                        block_ip(src_ip, enforce=args.enforce)
+                                        block_ip(src_ip, enforce=args.enforce,
+                                                 reason='ICMP_FLOOD', os_guess=get_os_guess(src_ip))
 
         elif ethertype==0x0806:
                 # skipping ethernet header and extracting arp packet
@@ -228,4 +230,3 @@ while True:
                                                 f'MAC changed from {arp_table[sender_ip]} to {sender_mac}', severity=3
                                         )
                         arp_table[sender_ip]=sender_mac
-
