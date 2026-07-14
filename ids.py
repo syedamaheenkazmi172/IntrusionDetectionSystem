@@ -5,8 +5,6 @@ import time
 import signal
 import sys
 from collections import defaultdict,Counter
-import logging
-import json
 from alert import alert
 import argparse
 from ips import block_ip, unblock_all
