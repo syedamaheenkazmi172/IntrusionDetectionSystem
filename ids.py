@@ -10,6 +10,7 @@ import argparse
 from ips import block_ip, unblock_all
 
 # off by default -- ids only starts blocking things if you explicitly ask for it
+# to run file for testing, do not add --enforce flag 
 parser = argparse.ArgumentParser()
 parser.add_argument("--enforce", action="store_true",
                      help="Actually block IPs via iptables (default: dry-run/log-only)")
@@ -25,7 +26,7 @@ except PermissionError:
 # handle ctrl+c and systemctl stop cleanly
 def shutdown(signum, frame):
         print("\nShutting down IDS.")
-        # clean up any firewall rules we added this run, don't leave orphans behind
+        # since it is just a project so this will unblock the blocked IPs
         unblock_all(enforce=args.enforce)
         s.close()
         sys.exit(0)
@@ -51,9 +52,9 @@ ssh_threshold=10
 ssh_window=60
 
 #arp table
-arp_table={}
+arp_table={} # to check while detecting arp spoofing
 
-# os detection logic
+# os detection logic that includes all the 
 OS_SAMPLE_WINDOW=100
 MAX_SAMPLES_PER_IP=20
 
@@ -61,7 +62,6 @@ os_samples_trusted=defaultdict(list)
 os_samples_untrusted=defaultdict(list)
 
 def classify_sample(ttl, window):
-    """Raw single-packet guess, same bucket logic as before."""
     if ttl <= 64:
         base_ttl = 64
     elif ttl <= 128:
@@ -181,7 +181,7 @@ while True:
                                         alert('SSH_BRUTE', src_ip,
                                               f'{len(ssh_tracker[src_ip])} SSH attempts to {dst_ip} in {ssh_window}s [suspected OS: {get_os_guess(src_ip)}]',
                                               severity=2)
-                                        # high-confidence attack, worth an automatic block
+                                        # since it is a high-confidence attack, 
                                         block_ip(src_ip, enforce=args.enforce,
                                                  reason='SSH_BRUTE', os_guess=get_os_guess(src_ip))
 
@@ -206,7 +206,7 @@ while True:
 
                                 if len(icmp_tracker[src_ip])>icmp_threshold:
                                         alert('ICMP_FLOOD', src_ip, f'{len(icmp_tracker[src_ip])} pings in {icmp_window}s',severity=3)
-					# same deal -- flood is unambiguous enough to act on
+										# flood is unambiguous enough to act on, so we will block the IP here as well
                                         block_ip(src_ip, enforce=args.enforce,
                                                  reason='ICMP_FLOOD', os_guess=get_os_guess(src_ip))
 
