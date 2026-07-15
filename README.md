@@ -22,21 +22,21 @@ every alert over HTTP to the dashboard running on Kali itself. The dashboard is 
 viewer/collector — it never touches packets and has no detection logic of its own.
 
 ```
- ┌─────────────────────┐   attack traffic    ┌─────────────────────┐
- │   Kali (attacker)    │ ───────────────────▶│   Raspberry Pi       │
+ ┌──────────────────────┐   attack traffic     ┌──────────────────────┐
+ │   Kali (attacker)    │ ───────────────────▶ │   Raspberry Pi       │
  │  nmap / hydra / ping │   (nmap, hydra,      │   sensor: ids.py     │
  │  -f / arpspoof ...   │    ping flood, ...)  │   + iptables (IPS)   │
- └─────────┬────────────┘                      └──────────┬──────────┘
+ └─────────┬────────────┘                      └──────────┬───────────┘    
            │                                               │ alert()
            │  http://<kali-ip>:8000/api/ingest             │ POST /api/ingest
            │◀──────────────────────────────────────────────┘
            ▼
  ┌──────────────────────────────────────────┐
- │   Kali (dashboard host)                   │
- │   main.py (FastAPI) ──▶ ids_alerts.db     │
- │        │                                  │
- │        └── SSE /stream ──▶ browser        │
- │             static/index.html             │
+ │   Kali (dashboard host)                  │
+ │   main.py (FastAPI) ──▶ ids_alerts.db    │
+ │        │                                 │
+ │        └── SSE /stream ──▶ browser       │
+ │             static/index.html            │
  └──────────────────────────────────────────┘
 ```
 
