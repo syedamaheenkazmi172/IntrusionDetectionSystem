@@ -1,17 +1,5 @@
-"""
-SQLite storage for the IDS alert dashboard.
+#SQLite storage for the IDS alert dashboard.
 
-Design notes (see the conversation that led here for the full reasoning):
-
-- Single file, WAL mode -> zero-config, no server, and comfortably handles
-  this app's actual access pattern: one writer, several readers.
-- main.py is the ONLY code that ever calls insert_alert(). ids.py (whether
-  it's the local kali-sensor or a remote Pi sensor) never opens this file --
-  it always talks to main.py over HTTP via POST /api/ingest. That sidesteps
-  SQLite's single-writer limitation entirely: there is only ever one process
-  touching the db file, and writes within that process are additionally
-  serialized by WRITE_LOCK below so concurrent request threads can't collide.
-"""
 import sqlite3
 import threading
 import time
