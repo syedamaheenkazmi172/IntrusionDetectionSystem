@@ -729,12 +729,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:140px;">IP</th>
-            <th style="width:110px;">Sensor</th>
-            <th style="width:140px;">Reason</th>
-            <th style="width:190px;">Suspected OS</th>
-            <th style="width:150px;">Blocked At</th>
-            <th style="width:110px;"></th>
+            <th style="width:150px;">IP</th>
+            <th style="width:120px;">Sensor</th>
+            <th style="width:150px;">Reason</th>
+            <th style="width:200px;">Suspected OS</th>
+            <th style="width:160px;">Blocked At</th>
           </tr>
         </thead>
         <tbody id="blocked-body"></tbody>
@@ -957,9 +956,6 @@ function rowHTML(a, isNew) {
       const isLocal = sensor === "kali-sensor";
       const sensorColor = isLocal ? "var(--brass)" : "var(--teal)";
       const reason = b.reason || reasonFromDetail(b.detail) || "—";
-      const btnAttrs = isLocal
-        ? `data-ip="${b.ip}"`
-        : `disabled title="Blocked by a remote sensor -- unblock it there for now (see chat)"`;
       return `
         <tr data-ip-row="${b.ip}">
           <td class="mono">${b.ip}</td>
@@ -967,7 +963,6 @@ function rowHTML(a, isNew) {
           <td class="mono">${reason}</td>
           <td class="mono" style="color:var(--muted); font-size:12px;">${osGuess}</td>
           <td class="time mono">${fmtTime(b.ts)}</td>
-          <td><button class="unblock-btn" ${btnAttrs}>Unblock</button></td>
         </tr>`;
     }).join("");
   }
@@ -999,32 +994,6 @@ function rowHTML(a, isNew) {
   document.getElementById("blocked-close").addEventListener("click", closeBlockedModal);
   document.getElementById("blocked-overlay").addEventListener("click", (e) => {
     if (e.target.id === "blocked-overlay") closeBlockedModal();
-  });
-
-  document.getElementById("blocked-body").addEventListener("click", (e) => {
-    const btn = e.target.closest(".unblock-btn");
-    if (!btn || btn.disabled || !btn.dataset.ip) return;
-    const ip = btn.dataset.ip;
-    btn.disabled = true;
-    btn.textContent = "...";
-    fetch("/api/unblock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ip })
-    })
-      .then(r => r.json().then(data => ({ ok: r.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) {
-          showToast("block", "Unblock failed", data.error || "Unknown error.");
-          btn.disabled = false;
-          btn.textContent = "Unblock";
-        }
-      })
-      .catch(() => {
-        showToast("block", "Unblock failed", "Network error reaching the dashboard backend.");
-        btn.disabled = false;
-        btn.textContent = "Unblock";
-      });
   });
 
   function showToast(kind, title, detail) {
