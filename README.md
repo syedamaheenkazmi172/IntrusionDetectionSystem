@@ -6,8 +6,18 @@ offending IPs at the firewall level. A FastAPI backend collects alerts from the 
 and serves a real-time console for monitoring and forensics.
 
 **Team**
-- Usman Azhar
-- Maheen Kazmi
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Usman-Azhar">
+        <b>Usman Azhar</b>
+    </td>
+    <td align="center">
+      <a href="https://github.com/syedamaheenkazmi172">
+        <b>Syeda Maheen Kazmi</b>
+    </td>
+  </tr>
+</table>
 
 ## Deployment used in this project
 
