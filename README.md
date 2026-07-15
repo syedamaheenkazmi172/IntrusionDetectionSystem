@@ -5,19 +5,10 @@ raw packets off the wire, detects common attack patterns, and can automatically 
 offending IPs at the firewall level. A FastAPI backend collects alerts from the sensor
 and serves a real-time console for monitoring and forensics.
 
-**Team**
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/Usman-Azhar">
-        <b>Usman Azhar</b>
-    </td>
-    <td align="center">
-      <a href="https://github.com/syedamaheenkazmi172">
-        <b>Syeda Maheen Kazmi</b>
-    </td>
-  </tr>
-</table>
+## Team
+
+- [**Usman Azhar**](https://github.com/Usman-Azhar)
+- [**Syeda Maheen Kazmi**](https://github.com/syedamaheenkazmi172)
 
 ## Deployment used in this project
 
