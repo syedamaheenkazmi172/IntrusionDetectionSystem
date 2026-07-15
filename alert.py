@@ -98,8 +98,12 @@ def alert(rule, src_ip, detail, severity=2):
                 except Exception as e:
                         print(f'[FORWARD-FAIL] could not reach {FORWARD_URL}: {e}')
 
-	# don't let the composite alert trigger correlation
-        if rule == 'MULTI_STAGE_ATTACK':
+	# don't let the composite alert, or our own block/unblock bookkeeping,
+	# feed back into correlation -- IP_BLOCKED/IP_UNBLOCKED are actions WE
+	# took in response to an attack, not a new attack stage, so counting
+	# them as a "distinct rule" was causing every real detection to falsely
+	# combine with its own resulting block and fire MULTI_STAGE_ATTACK.
+        if rule in ('MULTI_STAGE_ATTACK', 'IP_BLOCKED', 'IP_UNBLOCKED'):
                 return
 	# track this rule against the source ip, dropping anything outside the window
         recent_alerts[src_ip] = [
